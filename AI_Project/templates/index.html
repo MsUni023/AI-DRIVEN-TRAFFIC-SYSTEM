@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AI-Driven Traffic Optimization</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: burlywood;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+    
+        .container {
+            background-color: whitesmoke;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            width: 400px;
+        }
+    
+        #result {
+            margin-top: 20px;
+            background-color: lightgray;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: left;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+    
+        .button {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+    
+        .button-origin {
+            background-color: purple;
+            color: white;
+        }
+    
+        .button-origin:hover {
+            background-color: purple;
+        }
+    
+        .button-destination {
+            background-color: blueviolet;
+            color: white;
+        }
+    
+        .button-destination:hover {
+            background-color: blueviolet;
+        }
+    
+        .button-submit {
+            background-color: blue;
+            color: white;
+        }
+    
+        .button-submit:hover {
+            background-color: blue;
+        }
+    
+        input[type="text"] {
+            width: calc(100% - 20px);
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+        }
+    
+        /* Adjusting result styling */
+        .info p {
+            margin: 8px 0;
+        }
+    
+        .info p strong {
+            display: inline;
+            margin-right: 8px;
+        }
+    
+        #route-list {
+            list-style-type: none;
+            padding-left: 0;
+        }
+    
+        #route-list li {
+            background-color: #f4f4f4;
+            padding: 5px;
+            margin-bottom: 5px;
+            border-radius: 5px;
+        }
+    </style>    
+</head>
+<body>
+    <div class="container">
+        <h1>Traffic Optimization</h1>
+        <form id="travelForm">
+            <input type="text" id="origin" placeholder="Enter origin" pattern="[a-zA-Z,.- ]+" required>
+            <button type="button" class="button button-origin" id="use-origin-location">Use My Location as Origin</button><br>
+            
+            <input type="text" id="destination" placeholder="Enter destination" pattern="[a-zA-Z,.- ]+" required>
+            <button type="button" class="button button-destination" id="use-destination-location">Use My Location as Destination</button><br>
+            
+            <button type="submit" class="button button-submit">Calculate Travel Time</button>
+        </form>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        // Function to get the user's current location
+        function getUserLocation() {
+            return new Promise((resolve, reject) => {
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                            const { latitude, longitude } = position.coords;
+                            resolve(`${latitude},${longitude}`);
+                        },
+                        () => reject("Unable to retrieve your location.")
+                    );
+                } else {
+                    reject("Geolocation is not supported by this browser.");
+                }
+            });
+        }
+
+        // Set current location as origin
+        document.getElementById('use-origin-location').addEventListener('click', async function () {
+            try {
+                const location = await getUserLocation();
+                document.getElementById('origin').value = location;
+            } catch (error) {
+                alert(error);
+            }
+        });
+
+        // Set current location as destination
+        document.getElementById('use-destination-location').addEventListener('click', async function () {
+            try {
+                const location = await getUserLocation();
+                document.getElementById('destination').value = location;
+            } catch (error) {
+                alert(error);
+            }
+        });
+
+        // Convert seconds into hh:mm:ss format
+        function formatTime(seconds) {
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = seconds % 60;
+
+            return `${hours.toString().padStart(2, '0')} hr ${minutes.toString().padStart(2, '0')} min ${secs.toString().padStart(2, '0')} s`;
+        }
+
+        // Event listener for form submission
+        document.getElementById('travelForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const origin = document.getElementById('origin').value;
+            const destination = document.getElementById('destination').value;
+
+            fetch('/calculate_route', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ origin, destination })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        document.getElementById('result').innerHTML = `<p style="color: red;">${data.error}</p>`;
+                    } else {
+                        const travelTimeFormatted = formatTime(data.travel_time);
+                        const roadsList = data.route_steps.map(road => `<li>${road}</li>`).join('');
+                        document.getElementById('result').innerHTML = `
+                            <div class="info">
+                                <p><strong>Origin:</strong> ${data.origin}</p>
+                                <p><strong>Destination:</strong> ${data.destination}</p>
+                                <p><strong>Distance:</strong> ${data.distance}</p>
+                                <p><strong>Estimated Time:</strong> ${travelTimeFormatted}</p>
+                                <p><strong>Weather Condition:</strong> ${data.weather_condition}</p>
+                                <p><strong>Route:</strong></p>
+                                <ul id="route-list">${roadsList}</ul>
+                            </div>`;
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('result').innerHTML = `<p style="color: red;">Failed to fetch route details.</p>`;
+                });
+        });
+    </script>
+</body>
+</html>
